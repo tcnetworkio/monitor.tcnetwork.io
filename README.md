@@ -1,4 +1,4 @@
-# Cosmos Node Monitoring
+# Cosmos Node Monitoring & Alerting
 
 ## Overview
 
@@ -13,6 +13,7 @@ This instruction will assume an amd64-based device running Linux is used.
 
 #### 2. On Web server
 - Install Prometheus
+- Install Alert Manager
 - Install Grafana (if not using Grafana Cloud)
 
 #### 3. On Grafana Cloud
@@ -229,7 +230,125 @@ sudo systemctl start prometheus
 
 _**Note**: Default port is 9090. In order to use other port (ex: 6666), add paramter --web.listen-address=:6666 to the service file._
 
-### Step 5. Install Grafana (if not using Grafana Cloud)
+### Step 5. Install Alert Manager
+
+#### 1. Visit the [download page](https://github.com/metalmatze/alertmanager) and grab the download link.
+
+```sh
+wget https://github.com/prometheus/alertmanager/releases/download/v0.24.0/alertmanager-0.24.0.linux-amd64.tar.gz
+tar xvfz alertmanager-0.24.0.linux-amd64.tar.gz
+rm alertmanager-0.24.0.linux-amd64.tar.gz
+```
+
+#### 2. Configuration
+```sh
+cd alertmanager-0.24.0.linux-amd64
+
+# create folders to save data and config file
+sudo mkdir -p /etc/alertmanager
+sudo mkdir -p /data/alertmanager
+
+# move config file to config folder
+sudo mv alertmanager.yml /etc/alertmanager
+
+# move the executables to the /usr/local/bin folder
+sudo mv amtool alertmanager /usr/local/bin
+```
+
+#### 3. Create new user 
+
+```sh
+sudo useradd -rs /bin/false alertmanager
+sudo chown alertmanager:alertmanager /usr/local/bin/amtool /usr/local/bin/alertmanager
+sudo chown -R alertmanager:alertmanager /data/alertmanager /etc/alertmanager/*
+```
+
+#### 4. Create a systemd service
+
+```sh
+sudo tee <<EOF >/dev/null /etc/systemd/system/alertmanager.service
+[Unit]
+Description=Alert Manager
+After=network-online.target
+
+[Service]
+Type=simple
+User=alertmanager
+Group=alertmanager
+ExecStart=/usr/local/bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/data/alertmanager
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+#### 5. Start a systemd service
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable alertmanager
+sudo systemctl start alertmanager
+```
+
+#### 6. Check the logs of the process, default port is 9093
+```sh
+sudo journalctl -u alertmanager -f --output cat
+curl http://localhost:9093/alerts
+```
+
+#### 7. Update Prometheus Config file
+
+Open config file `/prometheus/prometheus.yml` and update `alerting` and `rule_files` section.
+```sh
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - localhost:9093
+
+rule_files:
+  - /path-to-alert.rules
+```
+
+In order to alert to Telegram, update the `/etc/alertmanager/alertmanager.yml`:
+```sh
+sudo nano /etc/alertmanager/alertmanager.yml
+
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'telegram'
+
+receivers:
+  - name: 'telegram'
+    telegram_configs:
+    - api_url: 'https://api.telegram.org'
+      bot_token: 'telegram bot token'
+      chat_id: 'ID of the chat where to send the messages'
+      parse_mode: 'HTML'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname']
+
+```
+
+
+#### 8. Restart prometheus service to apply new configuration.
+```sh
+sudo systemctl restart alertmanager
+sudo systemctl restart prometheus
+
+sudo journalctl -u alertmanager -f --output cat
+sudo journalctl -u prometheus -f --output cat
+```
+
+### Step 6. Install Grafana (if not using Grafana Cloud)
 
 #### 1. Visit the [download page](https://grafana.com/grafana/download) and grab the download link.
 
@@ -247,7 +366,7 @@ sudo systemctl start grafana-server
 sudo systemctl status grafana-server
 ```
 
-### Step 6. Using Grafana Cloud
+### Step 7. Using Grafana Cloud
 
 #### 1. Create Grafana account
 
@@ -265,3 +384,26 @@ sudo systemctl status grafana-server
         password: "your Grafana API key"
   ```
 - Add `remote_write` configuration to `/prometheus/prometheus.yml` file.
+
+
+_**Note**: Make sure ports are opened_
+- 9100 (Node Exporter)
+- 9300 (Cosmos Exporter)
+- 6666 (Prometheus)
+- 9093 (Alert Manager)
+
+### Demo
+Here is the dashboard screen after setting all done.
+
+- Dashboard
+![Granfana Dashboard](img/dashboard.png)
+
+- Vaidator Stats
+![Validator stats](img/validator_stats.png)
+
+- Chain health
+![Chain health](img/chain_health.png)
+
+- Hardware health
+![Hardware health](img/hardware_health.png)
+
