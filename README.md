@@ -1,22 +1,25 @@
 # Cosmos Node Monitoring & Alerting
 
-## Overview
-
 Instructions of how to setup node exporters on validator; setup prometheus, grafana, alertmanager on monitoring site. And also provides shell scripts with 'one click' setting.
 
 This instruction will assume an amd64-based device running Linux is used.
 
-#### 1. On Validator server
+## Overview
+
+### 1. On Validator server
+
 - Enable Prometheus setting
 - Install Node Exporter
 - Install Cosmos Exporter
 
-#### 2. On Web server
+### 2. On Web server
+
 - Install Prometheus
 - Install Alert Manager
 - Install Grafana (if not using Grafana Cloud)
 
-#### 3. On Grafana Cloud
+### 3. On Grafana Cloud
+
 - Create Grafana account
 - Create Grafana Cloud API key
 - Include Grafana Cloud username and the API key to Prometheus
@@ -29,7 +32,8 @@ Edit the `config.toml` file on node and enable Prometheus. The default metrics p
 
 ### Step 2. Install Node Exporter
 
-#### 1. Download binary
+#### 2.1. Download binary
+
 ```sh
 wget https://github.com/prometheus/node_exporter/releases/download/v1.3.1/node_exporter-1.3.1.linux-amd64.tar.gz
 tar xvfz node_exporter-*.*-amd64.tar.gz
@@ -37,20 +41,23 @@ sudo mv node_exporter-*.*-amd64/node_exporter /usr/local/bin/
 rm node_exporter-* -rf
 ```
 
-#### 2. Create new user 
+#### 2.2. Create new user
+
 ```sh
 sudo useradd -rs /bin/false node_exporter
 ```
 
-#### 3. Create a systemd service
+#### 2.3. Create a systemd service
 
 Using one of these commands to create a new service ```nano```, ```cat``` or ```tee```. Following use with ```nano```.
+
 ```sh
 sudo touch /etc/systemd/system/node-exporter.service && sudo nano /etc/systemd/system/node-exporter.service
 ```
 
 And use this template
-```
+
+```sh
 [Unit]
 Description=Node Exporter
 After=network.target
@@ -65,21 +72,24 @@ ExecStart=/usr/local/bin/node_exporter
 WantedBy=multi-user.target
 ```
 
-#### 4. Start a systemd service
+#### 2.4. Start a systemd service
+
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable node-exporter
 sudo systemctl start node-exporter
 ```
 
-#### 5. Verify that metrics are being exported on port 9100
+#### 2.5. Verify that metrics are being exported on port 9100
+
 ```sh
 curl http://localhost:9100/metrics
 ```
 
 ### Step 3. Install Cosmos Exporter
 
-#### 1. Download latest version from the [releases page](https://github.com/solarlabsteam/cosmos-exporter/releases/).
+#### 3.1. Download latest version from the [releases page](https://github.com/solarlabsteam/cosmos-exporter/releases/)
+
 ```sh
 wget https://github.com/solarlabsteam/cosmos-exporter/releases/download/v0.3.0/cosmos-exporter_0.3.0_Linux_x86_64.tar.gz
 tar xvfz cosmos-exporter_*.*_Linux_x86_64.tar.gz
@@ -87,20 +97,23 @@ sudo cp ./cosmos-exporter /usr/bin
 rm cosmos-exporter_* -rf
 ```
 
-#### 2. Create new user 
+#### 3.2. Create new user
+
 ```sh
 sudo useradd -rs /bin/false cosmos_exporter
 ```
 
-#### 3. Create a systemd service
+#### 3.3. Create a systemd service
 
 Using one of these commands to create a new service ```nano```, ```cat``` or ```tee```. Following use with ```nano```.
+
 ```sh
 sudo touch /etc/systemd/system/cosmos-exporter.service && sudo nano /etc/systemd/system/cosmos-exporter.service
 ```
 
 And use this template
-```
+
+```sh
 [Unit]
 Description=Cosmos Exporter
 After=network-online.target
@@ -123,19 +136,22 @@ EOF
 ```
 
 Set value for the `denom` and `prefix` parameters. Example for Cosmos Hub
+
 ```sh
 $BOND_DENOM=uatom
 $BENCH_PREFIX=cosmos
 ```
 
-#### 4. Start a systemd service
+#### 3.4. Start a systemd service
+
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable cosmos-exporter
 sudo systemctl start cosmos-exporter
 ```
 
-#### 5. Check the logs of the process, default port is 9300
+#### 3.5. Check the logs of the process, default port is 9300
+
 ```sh
 sudo journalctl -u cosmos-exporter -f --output cat
 ```
@@ -144,7 +160,8 @@ _**Note**: Cosmos Exporter work on a Cosmos-based blockchains with cosmos-sdk >=
 
 ### Step 4. Install Prometheus
 
-#### 1. Download latest version from the [releases page](https://github.com/prometheus/prometheus/releases).
+#### 4.1. Download latest version from the [releases page](https://github.com/prometheus/prometheus/releases)
+
 ```sh
 wget https://github.com/prometheus/prometheus/releases/download/v2.34.0/prometheus-2.34.0.linux-amd64.tar.gz
 tar xvfz prometheus-*.*-amd64.tar.gz
@@ -152,7 +169,7 @@ sudo mv prometheus-*.*-amd64 prometheus
 rm prometheus-* -rf
 ```
 
-#### 2. Configure Prometheus
+#### 4.2. Configure Prometheus
 
 Open config file `/prometheus/prometheus.yml`.
 
@@ -161,6 +178,7 @@ sudo nano ~/prometheus/prometheus.yml
 ```
 
 And add Node Exporter and Cosmos Exporter into the section `scrape_configs`. Here is example setting for `Cosmos Hub`.
+
 ```sh
 # default Prometheus metrics
 - job_name: tendermint
@@ -201,7 +219,7 @@ And add Node Exporter and Cosmos Exporter into the section `scrape_configs`. Her
       replacement: VALIDATOR_IP:9300
 ```
 
-#### 3. Create a systemd service
+#### 4.3. Create a systemd service
 
 ```sh
 sudo tee <<EOF >/dev/null /etc/systemd/system/prometheus.service
@@ -221,7 +239,8 @@ WantedBy=multi-user.target
 EOF
 ```
 
-#### 4. Start a systemd service
+#### 4.4. Start a systemd service
+
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable prometheus
@@ -232,7 +251,7 @@ _**Note**: Default port is 9090. In order to use other port (ex: 6666), add para
 
 ### Step 5. Install Alert Manager
 
-#### 1. Visit the [download page](https://github.com/metalmatze/alertmanager) and grab the download link.
+#### 5.1. Visit the [download page](https://github.com/metalmatze/alertmanager) and grab the download link
 
 ```sh
 wget https://github.com/prometheus/alertmanager/releases/download/v0.24.0/alertmanager-0.24.0.linux-amd64.tar.gz
@@ -240,7 +259,8 @@ tar xvfz alertmanager-0.24.0.linux-amd64.tar.gz
 rm alertmanager-0.24.0.linux-amd64.tar.gz
 ```
 
-#### 2. Configuration
+#### 5.2. Configuration
+
 ```sh
 cd alertmanager-0.24.0.linux-amd64
 
@@ -255,7 +275,7 @@ sudo mv alertmanager.yml /etc/alertmanager
 sudo mv amtool alertmanager /usr/local/bin
 ```
 
-#### 3. Create new user 
+#### 5.3. Create new user
 
 ```sh
 sudo useradd -rs /bin/false alertmanager
@@ -263,7 +283,7 @@ sudo chown alertmanager:alertmanager /usr/local/bin/amtool /usr/local/bin/alertm
 sudo chown -R alertmanager:alertmanager /data/alertmanager /etc/alertmanager/*
 ```
 
-#### 4. Create a systemd service
+#### 5.4. Create a systemd service
 
 ```sh
 sudo tee <<EOF >/dev/null /etc/systemd/system/alertmanager.service
@@ -283,22 +303,25 @@ WantedBy=multi-user.target
 EOF
 ```
 
-#### 5. Start a systemd service
+#### 5.5. Start a systemd service
+
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable alertmanager
 sudo systemctl start alertmanager
 ```
 
-#### 6. Check the logs of the process, default port is 9093
+#### 5.6. Check the logs of the process, default port is 9093
+
 ```sh
 sudo journalctl -u alertmanager -f --output cat
 curl http://localhost:9093/alerts
 ```
 
-#### 7. Update Prometheus Config file
+#### 5.7. Update Prometheus Config file
 
 Open config file `/prometheus/prometheus.yml` and update `alerting` and `rule_files` section.
+
 ```sh
 alerting:
   alertmanagers:
@@ -311,6 +334,7 @@ rule_files:
 ```
 
 In order to alert to Telegram, update the `/etc/alertmanager/alertmanager.yml`:
+
 ```sh
 sudo nano /etc/alertmanager/alertmanager.yml
 
@@ -338,8 +362,8 @@ inhibit_rules:
 
 ```
 
+#### 5.8. Restart prometheus service to apply new configuration
 
-#### 8. Restart prometheus service to apply new configuration.
 ```sh
 sudo systemctl restart alertmanager
 sudo systemctl restart prometheus
@@ -350,7 +374,7 @@ sudo journalctl -u prometheus -f --output cat
 
 ### Step 6. Install Grafana (if not using Grafana Cloud)
 
-#### 1. Visit the [download page](https://grafana.com/grafana/download) and grab the download link.
+#### 6.1. Visit the [download page](https://grafana.com/grafana/download) and grab the download link
 
 ```sh
 sudo apt-get install -y adduser libfontconfig
@@ -358,7 +382,7 @@ wget https://dl.grafana.com/enterprise/release/grafana-enterprise_8.4.5_amd64.de
 sudo dpkg -i grafana-enterprise_8.4.5_amd64.deb
 ```
 
-#### 2. Start Grafana Server As a Service
+#### 6.2. Start Grafana Server As a Service
 
 ```sh
 sudo systemctl daemon-reload
@@ -368,31 +392,34 @@ sudo systemctl status grafana-server
 
 ### Step 7. Using Grafana Cloud
 
-#### 1. Create Grafana account
+#### 7.1. Create Grafana account
 
-#### 2. Create Grafana Cloud API key
+#### 7.2. Create Grafana Cloud API key
 
-#### 3. Include Grafana Cloud username and the API key to Prometheus 
+#### 7.3. Include Grafana Cloud username and the API key to Prometheus
 
 - Navigate to the Cloud Portal, then from the Prometheus box, click Send Metrics.
 - Generate Prometheus `remote_write` Configuration:
-  ```
+
+  ```json
   remote_write:
     - url: "<Your Metrics instance remote_write endpoint>"
       basic_auth:
         username: "your grafana username"
         password: "your Grafana API key"
   ```
+
 - Add `remote_write` configuration to `/prometheus/prometheus.yml` file.
 
-
 _**Note**: Make sure ports are opened_
+
 - 9100 (Node Exporter)
 - 9300 (Cosmos Exporter)
 - 6666 (Prometheus)
 - 9093 (Alert Manager)
 
 ### Demo
+
 Here is the dashboard screen after setting all done.
 
 - Dashboard
@@ -406,4 +433,3 @@ Here is the dashboard screen after setting all done.
 
 - Hardware health
 ![Hardware health](img/hardware_health.png)
-
