@@ -378,15 +378,85 @@ sudo journalctl -u prometheus -f --output cat
 
 ```sh
 sudo apt-get install -y adduser libfontconfig
-wget https://dl.grafana.com/enterprise/release/grafana-enterprise_8.4.5_amd64.deb
-sudo dpkg -i grafana-enterprise_8.4.5_amd64.deb
+wget https://dl.grafana.com/enterprise/release/grafana-enterprise_9.4.7_amd64.deb
+sudo dpkg -i grafana-enterprise_9.4.7_amd64.deb
 ```
 
 #### 6.2. Start Grafana Server As a Service
 
 ```sh
 sudo systemctl daemon-reload
+sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
+sudo systemctl status grafana-server
+sudo journalctl -u grafana-server -f -o cat
+```
+
+#### 6.3. Setting Grafana
+
+By default Grafana will running on port `3000` after install, customize following settings to improve security:
+
+A. Setting Up the Reverse Proxy
+
+```sh
+sudo nano /etc/nginx/conf.d/your_domain.conf
+```
+
+```nginx
+map $http_upgrade $connection_upgrade {
+ default upgrade;
+ '' close;
+}
+
+server {
+  listen 80;
+  listen [::]:80; 
+
+  server_name your_domain www.your_domain;
+
+  location / {
+    proxy_set_header Host $http_host;
+    proxy_pass http://localhost:3000;
+  }
+
+  location /api/live {
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $http_host;
+    proxy_pass http://localhost:3000;
+  }
+}
+```
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+B. Disabling Grafana Registrations and Anonymous Access
+
+```sh
+sudo nano /etc/grafana/grafana.ini
+```
+
+```ini
+[server]
+http_port = 'your custom port'
+
+[users]
+# disable user signup / registration
+allow_sign_up = false
+
+[auth.anonymous]
+# enable anonymous access
+enabled = false
+```
+
+Restart Granfana service
+
+```sh
+sudo systemctl restart grafana-server
 sudo systemctl status grafana-server
 ```
 
